@@ -1,0 +1,84 @@
+.hero-section {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+  min-height: 600px;
+}
+
+.min-vh-50 {
+  min-height: 50vh;
+}
+
+.floating-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.stat-item {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.feature-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+}
+
+.feature-icon {
+  width: 80px;
+  height: 80px;
+  line-height: 80px;
+  background: rgba(13, 110, 253, 0.1);
+  border-radius: 50%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doctor-card {
+  transition: transform 0.3s ease;
+  border: none;
+  overflow: hidden;
+}
+
+.doctor-card:hover {
+  transform: translateY(-5px);
+}
+
+.doctor-avatar img {
+  object-fit: cover;
+  border: 3px solid #0d6efd;
+}
+
+.testimonial-card {
+  background: linear-gradient(145deg, #ffffff, #f8f9fa);
+}
+
+.cta-section {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    text-align: center;
+    padding: 3rem 0;
+  }
+  
+  .stat-item {
+    margin-bottom: 1rem;
+  }
+}

@@ -1,0 +1,40 @@
+.doctor-profile-page .card {
+  border-radius: 15px !important;
+  overflow: hidden;
+}
+
+.doctor-profile-page .border-bottom {
+  border-bottom: 2px solid #e9ecef !important;
+}
+
+.doctor-profile-page .form-control:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.doctor-profile-page .form-control:disabled {
+  background-color: #f8f9fa;
+  opacity: 0.8;
+}
+
+.doctor-profile-page .btn-success,
+.doctor-profile-page .btn-danger {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.doctor-profile-page .btn-success:hover,
+.doctor-profile-page .btn-danger:hover {
+  transform: scale(1.1);
+}
+
+.doctor-profile-page .badge {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 30px;
+}

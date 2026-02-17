@@ -1,0 +1,52 @@
+.doctors-list-page .search-bar .form-control {
+  border-radius: 30px 0 0 30px;
+  border: none;
+  padding: 0.75rem 1.5rem;
+}
+
+.doctors-list-page .search-bar .btn {
+  border-radius: 0;
+}
+
+.doctors-list-page .search-bar .btn:last-child {
+  border-radius: 0 30px 30px 0;
+}
+
+.doctors-list-page .filters-card {
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.doctors-list-page .doctor-card {
+  transition: transform 0.3s ease;
+  overflow: hidden;
+}
+
+.doctors-list-page .doctor-card:hover {
+  transform: translateY(-5px);
+}
+
+.doctors-list-page .doctor-card img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border: 3px solid #0d6efd;
+}
+
+.doctors-list-page .doctor-details {
+  color: #6c757d;
+}
+
+.doctors-list-page .doctor-details strong {
+  color: #212529;
+}
