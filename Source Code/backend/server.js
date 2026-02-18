@@ -21,8 +21,11 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
+  origin: [
+    'http://localhost:3000',
+    'https://docspot-ydw2.onrender.com'
+  ],
+  credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
