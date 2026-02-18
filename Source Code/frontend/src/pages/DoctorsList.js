@@ -5,6 +5,107 @@ import { FaSearch, FaStar, FaFilter } from 'react-icons/fa';
 import { doctorService } from '../services/api';
 import './DoctorsList.css';
 
+// ── PROFILE IMAGE FIX ──────────────────────────────────────────────────────
+// New doctors who register have profileImage = 'default-doctor.png' (a local
+// file that doesn't exist) or null. Both render as a broken/grey placeholder.
+// This component generates a coloured circle with initials (e.g. "PK" for
+// Pradeep Kumar, "NI" for Nikhil) as a fallback — exactly like Google/GitHub.
+
+// Pick a consistent color per doctor based on their name
+const AVATAR_COLORS = [
+  '#0d6efd', // blue
+  '#198754', // green
+  '#dc3545', // red
+  '#6f42c1', // purple
+  '#fd7e14', // orange
+  '#20c997', // teal
+  '#0dcaf0', // cyan
+  '#d63384', // pink
+];
+
+const getAvatarColor = (name = '') => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
+const getInitials = (name = '') => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const isValidImageUrl = (url) => {
+  if (!url) return false;
+  if (url === 'default-doctor.png') return false;
+  if (url.startsWith('http://') || url.startsWith('https://')) return true;
+  if (url.startsWith('/uploads/')) return true;
+  return false;
+};
+
+const DoctorAvatar = ({ doctor, size = 90 }) => {
+  const [imgError, setImgError] = useState(false);
+  const hasValidImage = isValidImageUrl(doctor.profileImage) && !imgError;
+
+  if (hasValidImage) {
+    return (
+      <img
+        src={doctor.profileImage}
+        alt={doctor.fullName}
+        onError={() => setImgError(true)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          display: 'block',
+          margin: '0 auto',
+        }}
+      />
+    );
+  }
+
+  // Initials avatar fallback
+  const color = getAvatarColor(doctor.fullName);
+  const initials = getInitials(doctor.fullName);
+  const fontSize = size * 0.36;
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        backgroundColor: color,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          color: '#ffffff',
+          fontSize: fontSize,
+          fontWeight: '700',
+          letterSpacing: '1px',
+          lineHeight: 1,
+          fontFamily: 'Segoe UI, sans-serif',
+          userSelect: 'none',
+        }}
+      >
+        {initials}
+      </span>
+    </div>
+  );
+};
+
+// ── MAIN COMPONENT ─────────────────────────────────────────────────────────
+
 const DoctorsList = () => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,10 +132,7 @@ const DoctorsList = () => {
   };
 
   const handleFilterChange = (e) => {
-    setFilters({
-      ...filters,
-      [e.target.name]: e.target.value
-    });
+    setFilters({ ...filters, [e.target.name]: e.target.value });
   };
 
   const applyFilters = async () => {
@@ -43,7 +141,6 @@ const DoctorsList = () => {
       const params = {};
       if (filters.specialization) params.specialization = filters.specialization;
       if (filters.city) params.city = filters.city;
-      
       const response = await doctorService.getDoctors(params);
       setDoctors(response.data.data || []);
     } catch (error) {
@@ -55,10 +152,12 @@ const DoctorsList = () => {
 
   const filteredDoctors = doctors.filter(doctor => {
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      return doctor.fullName?.toLowerCase().includes(searchLower) ||
-             doctor.specialization?.toLowerCase().includes(searchLower) ||
-             doctor.address?.city?.toLowerCase().includes(searchLower);
+      const q = filters.search.toLowerCase();
+      return (
+        doctor.fullName?.toLowerCase().includes(q) ||
+        doctor.specialization?.toLowerCase().includes(q) ||
+        doctor.address?.city?.toLowerCase().includes(q)
+      );
     }
     return true;
   });
@@ -97,11 +196,11 @@ const DoctorsList = () => {
                 onChange={handleFilterChange}
                 name="search"
               />
-              <Button variant="primary" onClick={() => {}}>
+              <Button variant="primary">
                 <FaSearch />
               </Button>
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <FaFilter />
@@ -120,8 +219,8 @@ const DoctorsList = () => {
                     <Col md={5}>
                       <Form.Group className="mb-3">
                         <Form.Label>Specialization</Form.Label>
-                        <Form.Select 
-                          name="specialization" 
+                        <Form.Select
+                          name="specialization"
                           value={filters.specialization}
                           onChange={handleFilterChange}
                         >
@@ -135,8 +234,8 @@ const DoctorsList = () => {
                     <Col md={5}>
                       <Form.Group className="mb-3">
                         <Form.Label>City</Form.Label>
-                        <Form.Select 
-                          name="city" 
+                        <Form.Select
+                          name="city"
                           value={filters.city}
                           onChange={handleFilterChange}
                         >
@@ -148,11 +247,7 @@ const DoctorsList = () => {
                       </Form.Group>
                     </Col>
                     <Col md={2} className="d-flex align-items-end">
-                      <Button 
-                        variant="primary" 
-                        className="w-100"
-                        onClick={applyFilters}
-                      >
+                      <Button variant="primary" className="w-100 mb-3" onClick={applyFilters}>
                         Apply
                       </Button>
                     </Col>
@@ -167,7 +262,7 @@ const DoctorsList = () => {
         <Row className="mb-3">
           <Col>
             <p className="text-muted">
-              Found <strong>{filteredDoctors.length}</strong> doctors
+              Found <strong>{filteredDoctors.length}</strong> doctor{filteredDoctors.length !== 1 ? 's' : ''}
             </p>
           </Col>
         </Row>
@@ -181,41 +276,41 @@ const DoctorsList = () => {
                   <Card.Body>
                     <Row className="align-items-center">
                       <Col xs={4}>
-                        <img 
-                          src={doctor.profileImage || 'https://via.placeholder.com/100'}
-                          alt={doctor.fullName}
-                          className="img-fluid rounded-circle"
-                        />
+                        {/* FIXED: DoctorAvatar renders initials when no real photo */}
+                        <DoctorAvatar doctor={doctor} size={80} />
                       </Col>
                       <Col xs={8}>
                         <h5 className="mb-1">{doctor.fullName}</h5>
                         <p className="text-primary mb-1">{doctor.specialization}</p>
                         <div className="d-flex align-items-center mb-2">
                           <FaStar className="text-warning me-1" />
-                          <span>{doctor.rating || 'New'}</span>
+                          <span>{doctor.rating > 0 ? doctor.rating : 'New'}</span>
                           <span className="text-muted ms-2">({doctor.totalReviews || 0} reviews)</span>
                         </div>
                       </Col>
                     </Row>
-                    
+
                     <hr />
-                    
+
                     <div className="doctor-details">
                       <p className="mb-2">
-                        <strong>Experience:</strong> {doctor.experience} years
+                        <strong>Experience:</strong> {doctor.experience ? `${doctor.experience} years` : 'N/A'}
                       </p>
                       <p className="mb-2">
                         <strong>Location:</strong> {doctor.address?.city || 'N/A'}
                       </p>
                       <p className="mb-3">
-                        <strong>Consultation Fee:</strong> <span className="text-primary fw-bold">${doctor.fees}</span>
+                        <strong>Consultation Fee:</strong>{' '}
+                        <span className="text-primary fw-bold">
+                          {doctor.fees ? `$${doctor.fees}` : 'N/A'}
+                        </span>
                       </p>
                     </div>
-                    
-                    <Button 
-                      as={Link} 
+
+                    <Button
+                      as={Link}
                       to={`/book-appointment/${doctor._id}`}
-                      variant="primary" 
+                      variant="primary"
                       className="w-100"
                     >
                       Book Appointment

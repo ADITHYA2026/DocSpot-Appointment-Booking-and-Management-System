@@ -17,31 +17,31 @@ const bookAppointment = async (req, res) => {
 
         // Validate required fields
         if (!doctorId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Doctor ID is required' 
+            return res.status(400).json({
+                success: false,
+                message: 'Doctor ID is required'
             });
         }
 
         // Validate MongoDB ObjectId
         if (!mongoose.Types.ObjectId.isValid(doctorId)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid doctor ID format' 
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid doctor ID format'
             });
         }
 
         if (!date) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Date is required' 
+            return res.status(400).json({
+                success: false,
+                message: 'Date is required'
             });
         }
 
         if (!timeSlot) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Time slot is required' 
+            return res.status(400).json({
+                success: false,
+                message: 'Time slot is required'
             });
         }
 
@@ -51,24 +51,23 @@ const bookAppointment = async (req, res) => {
                 timeSlot = JSON.parse(timeSlot);
             } catch (e) {
                 console.error('Error parsing timeSlot:', e);
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Invalid time slot format' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid time slot format'
                 });
             }
         }
 
         // Validate timeSlot has start property
         if (!timeSlot.start) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Time slot start time is required' 
+            return res.status(400).json({
+                success: false,
+                message: 'Time slot start time is required'
             });
         }
 
         // Ensure timeSlot has end property
         if (!timeSlot.end) {
-            // Calculate end time if not provided
             const [hours, minutes] = timeSlot.start.split(':').map(Number);
             const endMinutes = minutes + 30;
             const endHours = hours + Math.floor(endMinutes / 60);
@@ -83,22 +82,22 @@ const bookAppointment = async (req, res) => {
         // Check if doctor exists and is approved
         let doctor;
         try {
-            doctor = await Doctor.findOne({ 
-                _id: doctorId, 
-                status: 'approved' 
+            doctor = await Doctor.findOne({
+                _id: doctorId,
+                status: 'approved'
             });
         } catch (dbError) {
             console.error('Database error finding doctor:', dbError);
-            return res.status(500).json({ 
-                success: false, 
-                message: 'Error finding doctor' 
+            return res.status(500).json({
+                success: false,
+                message: 'Error finding doctor'
             });
         }
 
         if (!doctor) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Doctor not found or not approved' 
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found or not approved'
             });
         }
 
@@ -107,9 +106,9 @@ const bookAppointment = async (req, res) => {
         // Parse date
         const appointmentDate = new Date(date);
         if (isNaN(appointmentDate.getTime())) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid date format' 
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid date format'
             });
         }
 
@@ -128,9 +127,9 @@ const bookAppointment = async (req, res) => {
         });
 
         if (existingAppointment) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'This time slot is already booked' 
+            return res.status(400).json({
+                success: false,
+                message: 'This time slot is already booked'
             });
         }
 
@@ -143,10 +142,9 @@ const bookAppointment = async (req, res) => {
             }));
         }
 
-        // Create appointment with full date-time
-        const appointmentDateTime = new Date(date);
-        
         // Create appointment
+        const appointmentDateTime = new Date(date);
+
         const appointment = await Appointment.create({
             doctorId,
             userId: req.user._id,
@@ -189,7 +187,6 @@ const bookAppointment = async (req, res) => {
                 }
             } catch (notifyError) {
                 console.error('Error notifying doctor:', notifyError);
-                // Continue even if notification fails
             }
         }
 
@@ -202,29 +199,27 @@ const bookAppointment = async (req, res) => {
         console.error('=== BOOKING ERROR ===');
         console.error('Error name:', error.name);
         console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        
-        // Check for specific MongoDB errors
+
         if (error.name === 'CastError') {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 message: 'Invalid ID format',
-                error: error.message 
-            });
-        }
-        
-        if (error.name === 'ValidationError') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Validation error',
-                error: error.message 
+                ...(process.env.NODE_ENV === 'development' && { error: error.message })
             });
         }
 
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error: ' + error.message,
-            error: error.message 
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                ...(process.env.NODE_ENV === 'development' && { error: error.message })
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -260,10 +255,10 @@ const getUserAppointments = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -276,26 +271,26 @@ const cancelAppointment = async (req, res) => {
         const appointment = await Appointment.findById(req.params.id);
 
         if (!appointment) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Appointment not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
             });
         }
 
         // Check if user owns this appointment
-        if (appointment.userId.toString() !== req.user._id.toString() && 
+        if (appointment.userId.toString() !== req.user._id.toString() &&
             req.user.type !== 'admin') {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Not authorized' 
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized'
             });
         }
 
         // Check if appointment can be cancelled
         if (appointment.status === 'completed') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Cannot cancel completed appointment' 
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot cancel completed appointment'
             });
         }
 
@@ -303,19 +298,24 @@ const cancelAppointment = async (req, res) => {
         appointment.cancellationReason = req.body.reason || 'Cancelled by user';
         await appointment.save();
 
-        // Notify doctor
+        // FIX 4: appointment.doctorId is a raw ObjectId (not populated).
+        // Previously code did appointment.doctorId.userId which is always undefined.
+        // Correct approach: fetch the Doctor document first, then get its userId.
         if (appointment.doctorId) {
             try {
-                const doctorUser = await User.findById(appointment.doctorId.userId);
-                if (doctorUser) {
-                    if (!doctorUser.notification) doctorUser.notification = [];
-                    doctorUser.notification.push({
-                        type: 'cancellation',
-                        message: `Appointment cancelled by ${req.user.name}`,
-                        appointmentId: appointment._id,
-                        date: new Date()
-                    });
-                    await doctorUser.save();
+                const doctor = await Doctor.findById(appointment.doctorId);
+                if (doctor) {
+                    const doctorUser = await User.findById(doctor.userId);
+                    if (doctorUser) {
+                        if (!doctorUser.notification) doctorUser.notification = [];
+                        doctorUser.notification.push({
+                            type: 'cancellation',
+                            message: `Appointment cancelled by ${req.user.name}`,
+                            appointmentId: appointment._id,
+                            date: new Date()
+                        });
+                        await doctorUser.save();
+                    }
                 }
             } catch (notifyError) {
                 console.error('Error notifying doctor:', notifyError);
@@ -329,10 +329,10 @@ const cancelAppointment = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -346,17 +346,17 @@ const rescheduleAppointment = async (req, res) => {
         const appointment = await Appointment.findById(req.params.id);
 
         if (!appointment) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Appointment not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
             });
         }
 
         // Check if user owns this appointment
         if (appointment.userId.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Not authorized' 
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized'
             });
         }
 
@@ -370,9 +370,9 @@ const rescheduleAppointment = async (req, res) => {
         });
 
         if (existingAppointment) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'This time slot is already booked' 
+            return res.status(400).json({
+                success: false,
+                message: 'This time slot is already booked'
             });
         }
 
@@ -381,19 +381,22 @@ const rescheduleAppointment = async (req, res) => {
         appointment.status = 'pending'; // Reset to pending for doctor approval
         await appointment.save();
 
-        // Notify doctor
+        // FIX 4 (same fix for reschedule): Look up Doctor first, then User
         if (appointment.doctorId) {
             try {
-                const doctorUser = await User.findById(appointment.doctorId.userId);
-                if (doctorUser) {
-                    if (!doctorUser.notification) doctorUser.notification = [];
-                    doctorUser.notification.push({
-                        type: 'appointment',
-                        message: `Appointment rescheduled by ${req.user.name}`,
-                        appointmentId: appointment._id,
-                        date: new Date()
-                    });
-                    await doctorUser.save();
+                const doctor = await Doctor.findById(appointment.doctorId);
+                if (doctor) {
+                    const doctorUser = await User.findById(doctor.userId);
+                    if (doctorUser) {
+                        if (!doctorUser.notification) doctorUser.notification = [];
+                        doctorUser.notification.push({
+                            type: 'appointment',
+                            message: `Appointment rescheduled by ${req.user.name}`,
+                            appointmentId: appointment._id,
+                            date: new Date()
+                        });
+                        await doctorUser.save();
+                    }
                 }
             } catch (notifyError) {
                 console.error('Error notifying doctor:', notifyError);
@@ -407,10 +410,10 @@ const rescheduleAppointment = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };

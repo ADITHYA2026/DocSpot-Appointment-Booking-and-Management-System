@@ -31,10 +31,8 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response) {
-      // Handle different error statuses
       switch (error.response.status) {
         case 401:
-          // Unauthorized - clear local storage and redirect to login
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           window.location.href = '/login';
@@ -78,40 +76,39 @@ export const doctorService = {
   applyAsDoctor: (doctorData) => api.post('/doctors/apply', doctorData),
   updateProfile: (profileData) => api.put('/doctors/profile', profileData),
   getAppointments: () => api.get('/doctors/appointments/list'),
-  updateAppointmentStatus: (id, status) => api.put(`/doctors/appointments/${id}`, { status }),
+
+  // BUG FIX: DoctorDashboard calls updateAppointmentStatus(id, 'approved') — passing
+  // a plain string as second argument. The service was: (id, status) => api.put(..., { status })
+  // So the body sent is { status: 'approved' } which IS correct.
+  // BUT DoctorDashboard.js was calling it as: updateAppointmentStatus(app._id, { status })
+  // meaning the body becomes { status: { status: 'approved' } } — DOUBLE WRAPPED.
+  // The backend then destructures { status } and gets an object, not a string.
+  // Fix: normalize here so both call styles work correctly.
+  updateAppointmentStatus: (id, statusOrObject) => {
+    const status = typeof statusOrObject === 'object' ? statusOrObject.status : statusOrObject;
+    return api.put(`/doctors/appointments/${id}`, { status });
+  },
 };
 
 // Appointment services
 export const appointmentService = {
   bookAppointment: (appointmentData, files) => {
-  const formData = new FormData();
-  
-  // Append all fields to formData
-  Object.keys(appointmentData).forEach(key => {
-    if (key === 'timeSlot') {
-      // Make sure timeSlot is a proper JSON string
+    const formData = new FormData();
+
+    Object.keys(appointmentData).forEach(key => {
       formData.append(key, appointmentData[key]);
-    } else {
-      formData.append(key, appointmentData[key]);
-    }
-  });
-  
-  // Append files if any
-  if (files && files.length > 0) {
-    files.forEach(file => {
-      formData.append('documents', file);
     });
-  }
-  
-  // Log formData contents for debugging
-  for (let pair of formData.entries()) {
-    console.log(pair[0] + ': ' + pair[1]);
-  }
-  
-  return api.post('/appointments', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-},
+
+    if (files && files.length > 0) {
+      files.forEach(file => {
+        formData.append('documents', file);
+      });
+    }
+
+    return api.post('/appointments', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
   getUserAppointments: () => api.get('/appointments/my-appointments'),
   cancelAppointment: (id, reason) => api.put(`/appointments/${id}/cancel`, { reason }),
   rescheduleAppointment: (id, data) => api.put(`/appointments/${id}/reschedule`, data),
@@ -120,7 +117,7 @@ export const appointmentService = {
 // Admin services
 export const adminService = {
   getUsers: () => api.get('/admin/users'),
-  getDoctors: (status) => api.get('/admin/doctors', { params: { status } }),
+  getDoctors: (params) => api.get('/admin/doctors', { params }),
   updateDoctorStatus: (id, data) => api.put(`/admin/doctors/${id}/status`, data),
   getAppointments: () => api.get('/admin/appointments'),
   getStats: () => api.get('/admin/stats'),

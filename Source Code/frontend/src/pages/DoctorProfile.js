@@ -51,7 +51,10 @@ const DoctorProfile = () => {
     console.log('All doctors response:', response.data);
     
     const doctorsList = response.data.data || [];
-    const doctorData = doctorsList.find(d => d.userId === user?._id);
+    const doctorData = doctorsList.find(
+      d => d.userId && d.userId._id?.toString() === user?._id?.toString()
+    );
+
     
     console.log('Found doctor data:', doctorData);
     
@@ -333,15 +336,13 @@ const DoctorProfile = () => {
                           name="specialization"
                           value={formData.specialization}
                           onChange={handleChange}
-                          disabled={!editMode || doctor?.status === 'approved'}
+                          disabled={!editMode}
                           required
                           placeholder="e.g., Cardiologist, Dermatologist"
                         />
-                        {doctor?.status === 'approved' && (
-                          <Form.Text className="text-muted">
-                            Specialization cannot be changed after approval
-                          </Form.Text>
-                        )}
+                        <Form.Text className="text-muted">
+                          Changing specialization will require admin re-approval.
+                        </Form.Text>
                       </Form.Group>
                     </Col>
                     <Col md={3} className="mb-3">

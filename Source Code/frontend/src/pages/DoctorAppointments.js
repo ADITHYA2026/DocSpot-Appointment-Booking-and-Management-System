@@ -3,7 +3,7 @@ import { Container, Row, Col, Card, Table, Badge, Button } from 'react-bootstrap
 import { useAuth } from '../context/AuthContext';
 import { doctorService } from '../services/api';
 import { toast } from 'react-toastify';
-import { FaCheck, FaTimes, FaEye } from 'react-icons/fa';
+import { FaCheck, FaTimes } from 'react-icons/fa';
 
 const DoctorAppointments = () => {
   const { user } = useAuth();
@@ -26,13 +26,17 @@ const DoctorAppointments = () => {
     }
   };
 
+  // BUG FIX: Was calling updateAppointmentStatus(appointmentId, status) correctly
+  // but the original DoctorAppointments also had this fine.
+  // Keeping consistent — pass plain string, let api.js service wrap it.
   const handleStatusUpdate = async (appointmentId, status) => {
     try {
-      await doctorService.updateAppointmentStatus(appointmentId, status );
+      await doctorService.updateAppointmentStatus(appointmentId, status);
       toast.success(`Appointment ${status} successfully`);
       fetchAppointments();
     } catch (error) {
-      toast.error('Failed to update appointment status');
+      console.error('Error updating appointment:', error);
+      toast.error(error.response?.data?.message || 'Failed to update appointment status');
     }
   };
 
@@ -62,6 +66,7 @@ const DoctorAppointments = () => {
       <Row className="mb-4">
         <Col>
           <h2>Manage Appointments</h2>
+          <p className="text-muted">Review and respond to patient appointment requests</p>
         </Col>
       </Row>
 
@@ -69,28 +74,34 @@ const DoctorAppointments = () => {
         <Col>
           <Card className="shadow-sm">
             <Card.Body>
-              <div className="table-responsive">
-                <Table hover>
-                  <thead>
-                    <tr>
-                      <th>Patient</th>
-                      <th>Date</th>
-                      <th>Time</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {appointments.length > 0 ? (
-                      appointments.map(app => (
+              {appointments.length === 0 ? (
+                <p className="text-center text-muted py-4">No appointments found</p>
+              ) : (
+                <div className="table-responsive">
+                  <Table hover>
+                    <thead>
+                      <tr>
+                        <th>Patient</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {appointments.map(app => (
                         <tr key={app._id}>
                           <td>
                             <strong>{app.userInfo?.name}</strong>
                             <br />
-                            <small>{app.userInfo?.phone}</small>
+                            <small className="text-muted">{app.userInfo?.phone}</small>
                           </td>
                           <td>{new Date(app.date).toLocaleDateString()}</td>
-                          <td>{app.timeSlot?.start} - {app.timeSlot?.end}</td>
+                          <td>{app.timeSlot?.start} – {app.timeSlot?.end}</td>
+                          <td>
+                            <small>{app.reason || '—'}</small>
+                          </td>
                           <td>{getStatusBadge(app.status)}</td>
                           <td>
                             {app.status === 'pending' && (
@@ -112,19 +123,22 @@ const DoctorAppointments = () => {
                                 </Button>
                               </>
                             )}
+                            {app.status === 'approved' && (
+                              <Button
+                                variant="info"
+                                size="sm"
+                                onClick={() => handleStatusUpdate(app._id, 'completed')}
+                              >
+                                Mark Complete
+                              </Button>
+                            )}
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="5" className="text-center py-4">
-                          No appointments found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </Table>
-              </div>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Col>

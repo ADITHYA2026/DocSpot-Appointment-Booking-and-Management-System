@@ -88,15 +88,9 @@ body {
 
 /* Responsive Typography */
 @media (max-width: 768px) {
-  h1 {
-    font-size: 2rem;
-  }
-  h2 {
-    font-size: 1.75rem;
-  }
-  h3 {
-    font-size: 1.5rem;
-  }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.5rem; }
 }
 
 /* Form Styles */
@@ -161,24 +155,123 @@ body {
   border-radius: 0 0 12px 12px;
 }
 
-/* Toast Customization */
+/* ============================================================
+   TOAST NOTIFICATIONS — COMPLETE FIX
+   
+   Problem 1: react-toastify v9+ uses CSS custom properties
+   (--toastify-color-*) for theming. Overriding just
+   background-color doesn't work — the text color is also
+   controlled by toastify's own variables and defaults to dark
+   on light backgrounds (e.g. warning/info), making text
+   invisible or unreadable.
+
+   Problem 2: The progress bar, icon, and close button colors
+   also need to match the new background.
+
+   Fix: Override the toastify CSS variables AND force white
+   text + white icon/close button on all colored toasts.
+   Warning uses dark text since #ffc107 yellow is too light
+   for white text to be readable.
+   ============================================================ */
+
+/* Base toast container */
 .Toastify__toast {
-  border-radius: 8px;
-  font-family: inherit;
+  border-radius: 10px !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 14px 16px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+  min-height: 56px !important;
 }
 
+/* ── SUCCESS — green background, white text ── */
 .Toastify__toast--success {
-  background-color: var(--success-color);
+  background-color: #198754 !important;
+  color: #ffffff !important;
+  --toastify-color-progress-success: rgba(255,255,255,0.7) !important;
+}
+.Toastify__toast--success .Toastify__toast-body {
+  color: #ffffff !important;
+}
+.Toastify__toast--success svg {
+  fill: #ffffff !important;
+}
+.Toastify__toast--success .Toastify__close-button {
+  color: #ffffff !important;
+  opacity: 0.8 !important;
+}
+.Toastify__toast--success .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.6) !important;
 }
 
+/* ── ERROR — red background, white text ── */
 .Toastify__toast--error {
-  background-color: var(--danger-color);
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+  --toastify-color-progress-error: rgba(255,255,255,0.7) !important;
+}
+.Toastify__toast--error .Toastify__toast-body {
+  color: #ffffff !important;
+}
+.Toastify__toast--error svg {
+  fill: #ffffff !important;
+}
+.Toastify__toast--error .Toastify__close-button {
+  color: #ffffff !important;
+  opacity: 0.8 !important;
+}
+.Toastify__toast--error .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.6) !important;
 }
 
+/* ── INFO — blue background, white text ── */
 .Toastify__toast--info {
-  background-color: var(--info-color);
+  background-color: #0d6efd !important;
+  color: #ffffff !important;
+}
+.Toastify__toast--info .Toastify__toast-body {
+  color: #ffffff !important;
+}
+.Toastify__toast--info svg {
+  fill: #ffffff !important;
+}
+.Toastify__toast--info .Toastify__close-button {
+  color: #ffffff !important;
+  opacity: 0.8 !important;
+}
+.Toastify__toast--info .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.6) !important;
 }
 
+/* ── WARNING — amber background, DARK text (yellow + white = invisible) ── */
 .Toastify__toast--warning {
-  background-color: var(--warning-color);
+  background-color: #e6a817 !important;
+  color: #1a1a1a !important;
+}
+.Toastify__toast--warning .Toastify__toast-body {
+  color: #1a1a1a !important;
+}
+.Toastify__toast--warning svg {
+  fill: #1a1a1a !important;
+}
+.Toastify__toast--warning .Toastify__close-button {
+  color: #1a1a1a !important;
+  opacity: 0.7 !important;
+}
+.Toastify__toast--warning .Toastify__progress-bar {
+  background: rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Close button base */
+.Toastify__close-button {
+  align-self: center !important;
+}
+
+/* Toast body layout */
+.Toastify__toast-body {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 0 !important;
 }

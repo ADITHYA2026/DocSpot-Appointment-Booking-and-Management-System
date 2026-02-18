@@ -54,9 +54,9 @@ const registerUser = async (req, res) => {
         // Check if user exists
         const userExists = await User.findOne({ email });
         if (userExists) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'User already exists' 
+            return res.status(400).json({
+                success: false,
+                message: 'User already exists'
             });
         }
 
@@ -71,22 +71,39 @@ const registerUser = async (req, res) => {
             password: hashedPassword,
             phone,
             isDoctor: isDoctor || false,
-            type: 'user', // All users start as 'user'
-            notification: [] // Initialize empty array
+            type: 'user', // All users start as 'user' regardless of doctor flag
+            notification: []
         });
 
         if (user) {
-            // If registering as doctor, create doctor application
+            // If registering as doctor, create a MINIMAL doctor application.
+            // FIX: Only provide the fields we have at registration time.
+            // specialization / experience / fees are NOT required at this stage —
+            // the doctor completes those in their profile after logging in.
+            // The Doctor model's required: false change makes this work correctly.
             if (isDoctor) {
-                await Doctor.create({
-                    userId: user._id,
-                    fullName: name,
-                    email: email,
-                    phone: phone,
-                    status: 'pending'
-                });
+                try {
+                    await Doctor.create({
+                        userId: user._id,
+                        fullName: name,
+                        email: email,
+                        phone: phone,
+                        status: 'pending'
+                        // specialization, experience, fees left empty intentionally —
+                        // doctor fills these in via DoctorProfile page
+                    });
+                } catch (doctorCreateError) {
+                    // If doctor record creation fails, roll back the user to avoid orphan records
+                    console.error('Error creating doctor application:', doctorCreateError);
+                    await User.findByIdAndDelete(user._id);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Failed to create doctor application. Please try again.',
+                        ...(process.env.NODE_ENV === 'development' && { error: doctorCreateError.message })
+                    });
+                }
 
-                // Add notification for admin
+                // Notify admin about new doctor application
                 try {
                     const admin = await User.findOne({ type: 'admin' });
                     if (admin) {
@@ -100,7 +117,7 @@ const registerUser = async (req, res) => {
                     }
                 } catch (notifyError) {
                     console.error('Error notifying admin:', notifyError);
-                    // Continue - don't fail registration
+                    // Continue — don't fail registration if only notification fails
                 }
             }
 
@@ -119,10 +136,10 @@ const registerUser = async (req, res) => {
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -136,21 +153,21 @@ const loginUser = async (req, res) => {
 
         // Check for user email
         const user = await User.findOne({ email });
-        
+
         if (!user) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'Invalid email or password' 
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
             });
         }
 
         // Check password
         const isPasswordMatch = await bcrypt.compare(password, user.password);
-        
+
         if (!isPasswordMatch) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'Invalid email or password' 
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
             });
         }
 
@@ -176,10 +193,10 @@ const loginUser = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -190,11 +207,11 @@ const loginUser = async (req, res) => {
 const getUserProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('-password');
-        
+
         if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
             });
         }
 
@@ -212,10 +229,10 @@ const getUserProfile = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -228,13 +245,12 @@ const updateUserProfile = async (req, res) => {
         const user = await User.findById(req.user._id);
 
         if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
             });
         }
 
-        // Update fields
         user.name = req.body.name || user.name;
         user.phone = req.body.phone || user.phone;
 
@@ -259,10 +275,10 @@ const updateUserProfile = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -282,10 +298,10 @@ const getNotifications = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -309,10 +325,10 @@ const markNotificationRead = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };

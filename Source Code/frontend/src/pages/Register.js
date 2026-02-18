@@ -9,7 +9,7 @@ const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { register } = useAuth();
-  
+
   const searchParams = new URLSearchParams(location.search);
   const doctorParam = searchParams.get('type') === 'doctor';
 
@@ -44,7 +44,7 @@ const Register = () => {
       setPasswordError('Password must be at least 6 characters long');
       return false;
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       setPasswordError('Passwords do not match');
       return false;
@@ -61,7 +61,7 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -70,17 +70,19 @@ const Register = () => {
     setError('');
 
     const result = await register(formData);
-    
+
     if (result.success) {
       if (formData.isDoctor) {
-        navigate('/doctor/application-status');
+        // FIX 6: Was '/doctor/application-status' which doesn't exist in App.js routes.
+        // Redirect to doctor dashboard instead — the pending status is shown there.
+        navigate('/doctor/dashboard');
       } else {
         navigate('/dashboard');
       }
     } else {
       setError(result.error?.response?.data?.message || 'Registration failed');
     }
-    
+
     setLoading(false);
   };
 
@@ -103,8 +105,8 @@ const Register = () => {
                     {formData.isDoctor ? 'Join as Doctor' : 'Create Account'}
                   </h2>
                   <p className="text-muted">
-                    {formData.isDoctor 
-                      ? 'Register to start accepting appointments' 
+                    {formData.isDoctor
+                      ? 'Register to start accepting appointments'
                       : 'Sign up to book appointments with top doctors'}
                   </p>
                 </div>
@@ -117,7 +119,7 @@ const Register = () => {
 
                 {formData.isDoctor && (
                   <Alert variant="info" className="mb-4">
-                    Your application will be reviewed by our admin team. 
+                    Your application will be reviewed by our admin team.
                     You'll be notified once approved.
                   </Alert>
                 )}
@@ -264,7 +266,7 @@ const Register = () => {
                         Sign In
                       </Link>
                     </p>
-                    
+
                     {!formData.isDoctor && (
                       <p className="text-muted mt-3 mb-0">
                         Are you a doctor?{' '}

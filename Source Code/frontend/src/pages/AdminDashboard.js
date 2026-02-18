@@ -19,14 +19,22 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+  fetchDashboardData();
+
+  // Auto refresh every 10 seconds
+  const interval = setInterval(() => {
     fetchDashboardData();
-  }, []);
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, []);
+
 
   const fetchDashboardData = async () => {
     try {
       const [statsRes, doctorsRes, appointmentsRes] = await Promise.all([
         adminService.getStats(),
-        adminService.getDoctors('pending'),
+        adminService.getDoctors({ status: 'pending' }),
         adminService.getAppointments()
       ]);
 

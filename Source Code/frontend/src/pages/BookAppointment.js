@@ -12,7 +12,7 @@ const BookAppointment = () => {
   const { doctorId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -21,6 +21,7 @@ const BookAppointment = () => {
   const [reason, setReason] = useState('');
   const [documents, setDocuments] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
+  const [dayUnavailable, setDayUnavailable] = useState(false);
 
   useEffect(() => {
     fetchDoctorDetails();
@@ -44,17 +45,42 @@ const BookAppointment = () => {
     }
   };
 
+  // FIX 5: Generate time slots based on the doctor's actual schedule for the
+  // selected day of week. Previously this was hardcoded 9 AM–5 PM for every
+  // doctor and every day regardless of their actual availability.
   const generateTimeSlots = () => {
-    // This is a simplified version - in production, you'd check against booked appointments
-    const slots = [];
-    const startHour = 9; // 9 AM
-    const endHour = 17; // 5 PM
-    
-    for (let hour = startHour; hour < endHour; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`);
-      slots.push(`${hour.toString().padStart(2, '0')}:30`);
+    setSelectedTime('');
+    setDayUnavailable(false);
+
+    if (!doctor?.timings || !selectedDate) {
+      setAvailableSlots([]);
+      return;
     }
-    
+
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = dayNames[selectedDate.getDay()];
+    const timing = doctor.timings[dayName];
+
+    // If doctor is not available on this day
+    if (!timing || !timing.available || !timing.start || !timing.end) {
+      setAvailableSlots([]);
+      setDayUnavailable(true);
+      return;
+    }
+
+    const [startH, startM] = timing.start.split(':').map(Number);
+    const [endH, endM] = timing.end.split(':').map(Number);
+
+    const startTotalMins = startH * 60 + startM;
+    const endTotalMins = endH * 60 + endM;
+
+    const slots = [];
+    for (let mins = startTotalMins; mins < endTotalMins; mins += 30) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+
     setAvailableSlots(slots);
   };
 
@@ -63,51 +89,41 @@ const BookAppointment = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!selectedDate || !selectedTime) {
-    toast.error('Please select date and time');
-    return;
-  }
+    e.preventDefault();
 
-  setSubmitting(true);
+    if (!selectedDate || !selectedTime) {
+      toast.error('Please select date and time');
+      return;
+    }
 
-  try {
-    // Format the date properly
-    const formattedDate = selectedDate.toISOString();
-    
-    // Create timeSlot object
-    const timeSlotObj = {
-      start: selectedTime,
-      end: calculateEndTime(selectedTime)
-    };
+    setSubmitting(true);
 
-    // Create appointment data object
-    const appointmentData = {
-      doctorId: doctorId,
-      date: formattedDate,
-      timeSlot: JSON.stringify(timeSlotObj), // Stringify the timeSlot object
-      reason: reason || ''
-    };
+    try {
+      const formattedDate = selectedDate.toISOString();
 
-    console.log('Sending appointment data:', appointmentData);
-    console.log('Files:', documents);
+      const timeSlotObj = {
+        start: selectedTime,
+        end: calculateEndTime(selectedTime)
+      };
 
-    // Call the API
-    const response = await appointmentService.bookAppointment(appointmentData, documents);
-    
-    console.log('Response:', response);
-    
-    toast.success('Appointment booked successfully!');
-    navigate('/my-appointments');
-  } catch (error) {
-    console.error('Error booking appointment:', error);
-    console.error('Error response:', error.response?.data);
-    toast.error(error.response?.data?.message || 'Failed to book appointment');
-  } finally {
-    setSubmitting(false);
-  }
-};
+      const appointmentData = {
+        doctorId: doctorId,
+        date: formattedDate,
+        timeSlot: JSON.stringify(timeSlotObj),
+        reason: reason || ''
+      };
+
+      const response = await appointmentService.bookAppointment(appointmentData, documents);
+
+      toast.success('Appointment booked successfully!');
+      navigate('/my-appointments');
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      toast.error(error.response?.data?.message || 'Failed to book appointment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const calculateEndTime = (startTime) => {
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -133,6 +149,10 @@ const BookAppointment = () => {
     );
   }
 
+  // FIX 7: maxDate was new Date().setMonth(...) which returns a number (timestamp),
+  // not a Date object — causing DatePicker to silently ignore the constraint.
+  const maxDate = new Date(new Date().setMonth(new Date().getMonth() + 1));
+
   return (
     <div className="book-appointment-page">
       <Container className="py-4">
@@ -146,7 +166,7 @@ const BookAppointment = () => {
                 {/* Doctor Info Summary */}
                 <Row className="mb-4 pb-3 border-bottom">
                   <Col xs={3}>
-                    <img 
+                    <img
                       src={doctor.profileImage || 'https://via.placeholder.com/100'}
                       alt={doctor.fullName}
                       className="img-fluid rounded-circle"
@@ -168,7 +188,7 @@ const BookAppointment = () => {
                       selected={selectedDate}
                       onChange={date => setSelectedDate(date)}
                       minDate={new Date()}
-                      maxDate={new Date().setMonth(new Date().getMonth() + 1)}
+                      maxDate={maxDate}
                       className="form-control"
                       placeholderText="Choose appointment date"
                       required
@@ -179,20 +199,32 @@ const BookAppointment = () => {
                   {selectedDate && (
                     <Form.Group className="mb-3">
                       <Form.Label>Select Time</Form.Label>
-                      <Row>
-                        {availableSlots.map(slot => (
-                          <Col xs={4} md={3} className="mb-2" key={slot}>
-                            <Button
-                              type="button"
-                              variant={selectedTime === slot ? 'primary' : 'outline-primary'}
-                              className="w-100"
-                              onClick={() => setSelectedTime(slot)}
-                            >
-                              {slot}
-                            </Button>
-                          </Col>
-                        ))}
-                      </Row>
+                      {dayUnavailable ? (
+                        <Alert variant="warning" className="py-2">
+                          Dr. {doctor.fullName} is not available on{' '}
+                          {selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}s.
+                          Please select a different date.
+                        </Alert>
+                      ) : availableSlots.length === 0 ? (
+                        <Alert variant="info" className="py-2">
+                          No time slots available for this date.
+                        </Alert>
+                      ) : (
+                        <Row>
+                          {availableSlots.map(slot => (
+                            <Col xs={4} md={3} className="mb-2" key={slot}>
+                              <Button
+                                type="button"
+                                variant={selectedTime === slot ? 'primary' : 'outline-primary'}
+                                className="w-100 time-slot-btn"
+                                onClick={() => setSelectedTime(slot)}
+                              >
+                                {slot}
+                              </Button>
+                            </Col>
+                          ))}
+                        </Row>
+                      )}
                     </Form.Group>
                   )}
 
@@ -241,7 +273,7 @@ const BookAppointment = () => {
                     variant="primary"
                     size="lg"
                     className="w-100"
-                    disabled={submitting || !selectedDate || !selectedTime}
+                    disabled={submitting || !selectedDate || !selectedTime || dayUnavailable}
                   >
                     {submitting ? (
                       <>

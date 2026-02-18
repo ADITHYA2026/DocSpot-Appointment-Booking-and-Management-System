@@ -26,7 +26,28 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded documents (Fix 6 was already present — kept here)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// FIX 11: Rate limiting on auth endpoints to prevent brute-force attacks.
+// Using express-rate-limit — run: npm install express-rate-limit
+const rateLimit = require('express-rate-limit');
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 15,                   // max 15 attempts per window per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Too many attempts from this IP. Please try again after 15 minutes.'
+    }
+});
+
+// Apply rate limiter only to auth login/register (not profile/notifications)
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -42,8 +63,8 @@ app.use('/api/admin', adminRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
+    res.json({
+        status: 'OK',
         message: 'Server is running',
         timestamp: new Date().toISOString(),
         mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
@@ -68,52 +89,53 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    
+
     // Mongoose duplicate key error
     if (err.code === 11000) {
-        return res.status(400).json({ 
-            success: false, 
+        return res.status(400).json({
+            success: false,
             message: 'Duplicate field value entered',
             field: Object.keys(err.keyPattern)[0]
         });
     }
-    
+
     // Mongoose validation error
     if (err.name === 'ValidationError') {
         const messages = Object.values(err.errors).map(val => val.message);
-        return res.status(400).json({ 
-            success: false, 
+        return res.status(400).json({
+            success: false,
             message: messages.join(', ')
         });
     }
-    
+
     // JWT errors
     if (err.name === 'JsonWebTokenError') {
-        return res.status(401).json({ 
-            success: false, 
+        return res.status(401).json({
+            success: false,
             message: 'Invalid token'
         });
     }
-    
+
     if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-            success: false, 
+        return res.status(401).json({
+            success: false,
             message: 'Token expired'
         });
     }
-    
-    res.status(500).json({ 
-        success: false, 
+
+    // FIX 12: Only show error details in development mode
+    res.status(500).json({
+        success: false,
         message: 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        ...(process.env.NODE_ENV === 'development' && { error: err.message })
     });
 });
 
 // 404 handler
 app.use((req, res) => {
-    res.status(404).json({ 
-        success: false, 
-        message: 'Route not found' 
+    res.status(404).json({
+        success: false,
+        message: 'Route not found'
     });
 });
 
@@ -126,7 +148,6 @@ const server = app.listen(PORT, () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
     console.log(`Error: ${err.message}`);
-    // Close server & exit process
     server.close(() => process.exit(1));
 });
 

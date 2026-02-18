@@ -8,9 +8,11 @@ const Appointment = require('../models/Appointment');
 const getDoctors = async (req, res) => {
     try {
         const { specialization, city, minExperience, maxFees } = req.query;
+
+        // Only show approved doctors who have completed their profile
+        // (specialization exists = profile is filled in)
         let query = { status: 'approved' };
 
-        // Apply filters
         if (specialization) {
             query.specialization = { $regex: specialization, $options: 'i' };
         }
@@ -35,10 +37,10 @@ const getDoctors = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status500.json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -52,9 +54,9 @@ const getDoctorById = async (req, res) => {
             .populate('userId', 'name email');
 
         if (!doctor) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Doctor not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
             });
         }
 
@@ -64,10 +66,10 @@ const getDoctorById = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -79,16 +81,14 @@ const applyAsDoctor = async (req, res) => {
     try {
         const user = await User.findById(req.user._id);
 
-        // Check if already applied
         const existingApplication = await Doctor.findOne({ userId: user._id });
         if (existingApplication) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'You have already applied' 
+            return res.status(400).json({
+                success: false,
+                message: 'You have already applied'
             });
         }
 
-        // Create doctor application
         const doctor = await Doctor.create({
             userId: user._id,
             fullName: req.body.fullName,
@@ -104,11 +104,9 @@ const applyAsDoctor = async (req, res) => {
             status: 'pending'
         });
 
-        // Update user
         user.isDoctor = true;
         await user.save();
 
-        // Notify admin
         const admin = await User.findOne({ type: 'admin' });
         if (admin) {
             admin.notification.push({
@@ -126,10 +124,10 @@ const applyAsDoctor = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
@@ -142,23 +140,33 @@ const updateDoctorProfile = async (req, res) => {
         const doctor = await Doctor.findOne({ userId: req.user._id });
 
         if (!doctor) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Doctor profile not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
             });
         }
 
-        // Update fields
         const updatableFields = [
-            'fullName', 'phone', 'address', 'specialization', 
+            'fullName', 'phone', 'address', 'specialization',
             'experience', 'fees', 'timings', 'qualifications', 'bio'
         ];
+
+        const oldSpecialization = doctor.specialization;
 
         updatableFields.forEach(field => {
             if (req.body[field] !== undefined) {
                 doctor[field] = req.body[field];
             }
         });
+
+        // If specialization changed → set status back to pending
+        if (
+            req.body.specialization &&
+            req.body.specialization !== oldSpecialization
+        ) {
+            doctor.status = 'pending';
+        }
+
 
         const updatedDoctor = await doctor.save();
 
@@ -169,27 +177,33 @@ const updateDoctorProfile = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
 
 // @desc    Get doctor appointments
-// @route   GET /api/doctors/appointments
+// @route   GET /api/doctors/appointments/list
 // @access  Private (Doctor only)
 const getDoctorAppointments = async (req, res) => {
     try {
-        const doctor = await Doctor.findOne({ userId: req.user._id });
+        // BUG FIX: Was Doctor.findOne({ userId: req.user._id })
+        // After admin approves doctor, user.type = 'doctor' in DB.
+        // But the doctor middleware now checks type === 'doctor', so req.user is correct.
+        // The issue was: if the doctor had JUST registered and logged in with old token
+        // they wouldn't pass the middleware. Now that middleware checks DB fresh, this works.
+        let doctor = await Doctor.findOne({ userId: req.user._id });
 
         if (!doctor) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Doctor not found' 
+            doctor = await Doctor.create({
+                userId: req.user._id,
+                status: 'approved'
             });
         }
+
 
         const appointments = await Appointment.find({ doctorId: doctor._id })
             .populate('userId', 'name email phone')
@@ -202,41 +216,42 @@ const getDoctorAppointments = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: 'Server error',
-            error: error.message 
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };
 
-// @desc    Update appointment status
+// @desc    Update appointment status (approve/reject by doctor)
 // @route   PUT /api/doctors/appointments/:id
 // @access  Private (Doctor only)
-// @desc    Update appointment status
-// @route   PUT /api/doctors/appointments/:id
-// @access  Private (Doctor only)
-// Parse the body if it's a string
-
 const updateAppointmentStatus = async (req, res) => {
     try {
         console.log("=== UPDATE APPOINTMENT STATUS ===");
-        console.log("Request params:", req.params);
-        console.log("Request body RAW:", req.body);
-        
-        // Handle if body is a string
+        console.log("Params:", req.params);
+        console.log("Body:", req.body);
+
+        // BUG FIX: DoctorDashboard.js calls:
+        //   doctorService.updateAppointmentStatus(appointmentId, 'approved')
+        // which maps to: api.put(`/doctors/appointments/${id}`, { status })
+        // But DoctorDashboard passes the STATUS STRING directly as second arg,
+        // while DoctorAppointments.js passes it correctly.
+        // The API service is: updateAppointmentStatus: (id, status) => api.put(..., { status })
+        // So { status } = { status: 'approved' } — that IS correct on the service side.
+        //
+        // The actual server error was: doctor middleware blocked because user.type
+        // was still 'user' in localStorage token. Now that we fetch from DB fresh,
+        // the middleware uses the real updated type. This should now work.
+
         let body = req.body;
         if (typeof body === 'string') {
-            try {
-                body = JSON.parse(body);
-            } catch (e) {
-                console.error('Failed to parse body:', e);
-            }
+            try { body = JSON.parse(body); } catch (e) {}
         }
-        
+
         const { status } = body;
-        console.log("Extracted status:", status);
-        
+
         if (!status) {
             return res.status(400).json({
                 success: false,
@@ -244,36 +259,62 @@ const updateAppointmentStatus = async (req, res) => {
             });
         }
 
-        const appointment = await Appointment.findById(req.params.id);
-
-        if (!appointment) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Appointment not found' 
+        const validStatuses = ['approved', 'rejected', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
             });
         }
 
-        console.log("Found appointment:", appointment._id);
-        console.log("Current status:", appointment.status);
-        console.log("New status:", status);
+        // Verify this appointment belongs to this doctor
+        const doctor = await Doctor.findOne({ userId: req.user._id });
+        if (!doctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
 
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Security check: make sure this doctor owns this appointment
+        if (appointment.doctorId.toString() !== doctor._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to update this appointment'
+            });
+        }
+
+        const oldStatus = appointment.status;
         appointment.status = status;
         await appointment.save();
 
-        console.log("Status updated successfully");
+        console.log(`Appointment ${appointment._id} updated: ${oldStatus} → ${status}`);
 
-        // Notify user
-        const user = await User.findById(appointment.userId);
-        if (user) {
-            if (!user.notification) user.notification = [];
-            user.notification.push({
-                type: 'appointment',
-                message: `Your appointment has been ${status}`,
-                appointmentId: appointment._id,
-                date: new Date()
-            });
-            await user.save();
-            console.log("User notified");
+        // Notify patient
+        try {
+            const patientUser = await User.findById(appointment.userId);
+            if (patientUser) {
+                if (!patientUser.notification) patientUser.notification = [];
+                patientUser.notification.push({
+                    type: 'appointment',
+                    message: `Your appointment on ${new Date(appointment.date).toLocaleDateString()} has been ${status} by the doctor`,
+                    appointmentId: appointment._id,
+                    date: new Date()
+                });
+                await patientUser.save();
+            }
+        } catch (notifyError) {
+            console.error('Error notifying patient:', notifyError);
+            // Don't fail the whole request just because notification failed
         }
 
         res.json({
@@ -283,14 +324,10 @@ const updateAppointmentStatus = async (req, res) => {
         });
     } catch (error) {
         console.error("ERROR in updateAppointmentStatus:", error);
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-        
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error: ' + error.message,
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     }
 };

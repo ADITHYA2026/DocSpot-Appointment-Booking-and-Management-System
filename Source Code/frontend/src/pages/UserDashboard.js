@@ -6,6 +6,85 @@ import { useAuth } from '../context/AuthContext';
 import { appointmentService, doctorService } from '../services/api';
 import './Dashboard.css';
 
+// ── PROFILE IMAGE FIX (Same as DoctorsList) ──
+
+const AVATAR_COLORS = [
+  '#0d6efd',
+  '#198754',
+  '#dc3545',
+  '#6f42c1',
+  '#fd7e14',
+  '#20c997',
+  '#0dcaf0',
+  '#d63384',
+];
+
+const getAvatarColor = (name = '') => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
+const getInitials = (name = '') => {
+  const parts = name.trim().split(/\s+/);
+  if (!parts[0]) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const isValidImageUrl = (url) => {
+  if (!url) return false;
+  if (url === 'default-doctor.png') return false;
+  if (url.startsWith('http://') || url.startsWith('https://')) return true;
+  if (url.startsWith('/uploads/')) return true;
+  return false;
+};
+
+const DoctorAvatar = ({ doctor, size = 90 }) => {
+  const [imgError, setImgError] = useState(false);
+  const hasValidImage = isValidImageUrl(doctor.profileImage) && !imgError;
+
+  if (hasValidImage) {
+    return (
+      <img
+        src={doctor.profileImage}
+        alt={doctor.fullName}
+        onError={() => setImgError(true)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          objectFit: 'cover',
+        }}
+      />
+    );
+  }
+
+  const color = getAvatarColor(doctor.fullName);
+  const initials = getInitials(doctor.fullName);
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        backgroundColor: color,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto'
+      }}
+    >
+      <span style={{ color: '#fff', fontSize: 35, fontWeight: 600 }}>
+        {initials}
+      </span>
+    </div>
+  );
+};
+
 const UserDashboard = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
@@ -176,13 +255,7 @@ const UserDashboard = () => {
               <Card className="doctor-card h-100 shadow-sm">
                 <Card.Body>
                   <div className="text-center mb-3">
-                    <img 
-                      src={doctor.profileImage || 'https://via.placeholder.com/100'}
-                      alt={doctor.fullName}
-                      className="rounded-circle"
-                      width="80"
-                      height="80"
-                    />
+                    <DoctorAvatar doctor={doctor} size={80} />
                     <h6 className="mt-2 mb-1">{doctor.fullName}</h6>
                     <p className="text-muted small">{doctor.specialization}</p>
                   </div>

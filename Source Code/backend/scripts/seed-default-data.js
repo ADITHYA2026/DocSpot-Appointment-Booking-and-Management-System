@@ -17,7 +17,7 @@ const seedDatabase = async () => {
 
     const db = mongoose.connection.db;
 
-    // Clear existing data (optional - remove this section if you want to keep existing data)
+    // Clear existing data
     console.log('\n🧹 Clearing existing data...');
     const usersDeleted = await db.collection('users').deleteMany({});
     const doctorsDeleted = await db.collection('doctors').deleteMany({});
@@ -27,7 +27,7 @@ const seedDatabase = async () => {
     console.log(`   - Deleted ${appointmentsDeleted.deletedCount} appointments`);
 
     // Generate password hashes
-    console.log('\n🔐 Generating password hashes...');
+    console.log('\n🔑 Generating password hashes...');
     const salt = await bcrypt.genSalt(10);
     const userPassword = await bcrypt.hash('password123', salt);
     const adminPassword = await bcrypt.hash('Admin@123', salt);
@@ -135,7 +135,15 @@ const seedDatabase = async () => {
     console.log(`      - 3 Doctors`);
     console.log(`      - 1 Admin`);
 
-    // Helper function to get user IDs by email
+    // FIX 3: insertMany returns insertedIds keyed by array index.
+    // Map them back onto each user object so getUserId() works correctly.
+    // Previously users[n]._id was always undefined, causing NULL foreign keys
+    // in doctors and appointments collections.
+    Object.entries(insertedUsers.insertedIds).forEach(([index, id]) => {
+      users[parseInt(index)]._id = id;
+    });
+
+    // Helper function to get user IDs by email (now works correctly)
     const getUserId = (email) => {
       const user = users.find(u => u.email === email);
       return user ? user._id : null;
@@ -217,7 +225,7 @@ const seedDatabase = async () => {
         status: "approved",
         rating: 4.9,
         totalReviews: 98,
-        profileImage: "https://ui-avatars.com/api/?name=Michel+Chen&size=200&background=0D6EFD&color=fff&bold=true&length=2",
+        profileImage: "https://ui-avatars.com/api/?name=Michael+Chen&size=200&background=0D6EFD&color=fff&bold=true&length=2",
         createdAt: new Date("2023-11-05"),
         __v: 0
       },
@@ -262,11 +270,17 @@ const seedDatabase = async () => {
 
     const insertedDoctors = await db.collection('doctors').insertMany(doctors);
     console.log(`   ✅ Created ${insertedDoctors.insertedCount} doctor profiles:`);
-    doctors.forEach((doc, index) => {
-      console.log(`      - ${doc.fullName} (${doc.specialization})`);
+
+    // FIX 3 (continued): Same fix applied to doctors array
+    Object.entries(insertedDoctors.insertedIds).forEach(([index, id]) => {
+      doctors[parseInt(index)]._id = id;
     });
 
-    // Helper function to get doctor IDs by name
+    doctors.forEach((doc) => {
+      console.log(`      - ${doc.fullName} (${doc.specialization}) → userId: ${doc.userId}`);
+    });
+
+    // Helper function to get doctor IDs by name (now works correctly)
     const getDoctorId = (name) => {
       const doctor = doctors.find(d => d.fullName === name);
       return doctor ? doctor._id : null;
@@ -402,7 +416,7 @@ const seedDatabase = async () => {
 
     const insertedAppointments = await db.collection('appointments').insertMany(appointments);
     console.log(`   ✅ Created ${insertedAppointments.insertedCount} appointments:`);
-    appointments.forEach((app, index) => {
+    appointments.forEach((app) => {
       console.log(`      - ${app.userInfo.name} with ${app.doctorInfo.name} (${app.status})`);
     });
 
@@ -411,15 +425,9 @@ const seedDatabase = async () => {
     // ===========================================
     console.log('\n🔔 Step 4: Adding sample notifications...');
 
-    const getNotificationUser = (email) => {
-      const user = users.find(u => u.email === email);
-      return user ? user._id : null;
-    };
-
-    // Add notifications to specific users
     const notifications = [
       {
-        userId: getNotificationUser("john.smith@example.com"),
+        userId: getUserId("john.smith@example.com"),
         notifications: [
           {
             type: "appointment",
@@ -438,7 +446,7 @@ const seedDatabase = async () => {
         ]
       },
       {
-        userId: getNotificationUser("sarah.johnson@doctor.com"),
+        userId: getUserId("sarah.johnson@doctor.com"),
         notifications: [
           {
             type: "appointment",
@@ -456,7 +464,7 @@ const seedDatabase = async () => {
         ]
       },
       {
-        userId: getNotificationUser("sophia.martinez@example.com"),
+        userId: getUserId("sophia.martinez@example.com"),
         notifications: [
           {
             type: "appointment",
@@ -469,7 +477,6 @@ const seedDatabase = async () => {
       }
     ];
 
-    // Add notifications to users
     for (const notif of notifications) {
       await db.collection('users').updateOne(
         { _id: notif.userId },
@@ -488,53 +495,24 @@ const seedDatabase = async () => {
     console.log(`   👤 Users: ${insertedUsers.insertedCount}`);
     console.log(`   👨‍⚕️ Doctors: ${insertedDoctors.insertedCount}`);
     console.log(`   📅 Appointments: ${insertedAppointments.insertedCount}`);
-    
+
     console.log('\n🔑 LOGIN CREDENTIALS:');
     console.log('   ' + '-'.repeat(40));
     console.log('   📌 ADMIN ACCESS:');
     console.log('      Email: admin@docspot.com');
     console.log('      Password: Admin@123');
-    console.log('      Role: Full system access');
-    
-    console.log('\n   📌 DOCTOR ACCESS:');
-    console.log('      1. Dr. Sarah Johnson');
-    console.log('         Email: sarah.johnson@doctor.com');
-    console.log('         Password: password123');
-    console.log('         Specialization: Cardiologist');
-    console.log('');
-    console.log('      2. Dr. Michael Chen');
-    console.log('         Email: michael.chen@doctor.com');
-    console.log('         Password: password123');
-    console.log('         Specialization: Dermatologist');
-    console.log('');
-    console.log('      3. Dr. Emily Rodriguez');
-    console.log('         Email: emily.rodriguez@doctor.com');
-    console.log('         Password: password123');
-    console.log('         Specialization: Pediatrician');
-    
-    console.log('\n   📌 PATIENT ACCESS:');
-    console.log('      1. John Smith');
-    console.log('         Email: john.smith@example.com');
-    console.log('         Password: password123');
-    console.log('         Appointments: 2 (1 approved, 1 pending)');
-    console.log('');
-    console.log('      2. Emma Watson');
-    console.log('         Email: emma.watson@example.com');
-    console.log('         Password: password123');
-    console.log('         Appointments: 1 pending');
-    console.log('');
-    console.log('      3. Robert Johnson');
-    console.log('         Email: robert.johnson@example.com');
-    console.log('         Password: password123');
-    console.log('         Appointments: 1 pending');
-    console.log('');
-    console.log('      4. Sophia Martinez');
-    console.log('         Email: sophia.martinez@example.com');
-    console.log('         Password: password123');
-    console.log('         Appointments: 1 completed');
-    
-    console.log('\n✅ All data has been seeded successfully!');
-    console.log('🚀 You can now start your application and login with any of the above credentials.\n');
+    console.log('\n   📌 DOCTOR ACCESS (password: password123):');
+    console.log('      sarah.johnson@doctor.com  (Cardiologist)');
+    console.log('      michael.chen@doctor.com   (Dermatologist)');
+    console.log('      emily.rodriguez@doctor.com (Pediatrician)');
+    console.log('\n   📌 PATIENT ACCESS (password: password123):');
+    console.log('      john.smith@example.com');
+    console.log('      emma.watson@example.com');
+    console.log('      robert.johnson@example.com');
+    console.log('      sophia.martinez@example.com');
+
+    console.log('\n✅ All data seeded successfully!');
+    console.log('🚀 Start the app and login with any credentials above.\n');
 
   } catch (error) {
     console.error('\n❌ ERROR DURING SEEDING:');

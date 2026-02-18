@@ -38,6 +38,13 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import NotFound from './pages/NotFound';
 
+// FIX 9: Import the new stub pages for missing routes
+// These were linked in Register.js and Login.js but had no route definitions,
+// causing a 404 / NotFound render when clicked.
+import ForgotPassword from './pages/ForgotPassword';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+
 // Protected Route Component
 import ProtectedRoute from './components/common/ProtectedRoute';
 
@@ -55,7 +62,12 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/doctors" element={<DoctorsList />} />
-            
+
+            {/* FIX 9: Previously missing routes — linked in Register & Login but undefined */}
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+
             {/* Protected User Routes */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
@@ -77,7 +89,7 @@ function App() {
                 <MyAppointments />
               </ProtectedRoute>
             } />
-            
+
             {/* Protected Doctor Routes */}
             <Route path="/doctor/dashboard" element={
               <ProtectedRoute requiredRole="doctor">
@@ -94,7 +106,7 @@ function App() {
                 <DoctorProfile />
               </ProtectedRoute>
             } />
-            
+
             {/* Protected Admin Routes */}
             <Route path="/admin/dashboard" element={
               <ProtectedRoute requiredRole="admin">
@@ -116,7 +128,7 @@ function App() {
                 <ManageAppointments />
               </ProtectedRoute>
             } />
-            
+
             {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>

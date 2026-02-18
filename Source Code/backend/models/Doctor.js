@@ -30,29 +30,36 @@ const doctorSchema = new mongoose.Schema({
         zipCode: String,
         fullAddress: String
     },
+
+    // FIX: These three fields were marked required: true but are NOT collected
+    // during registration — only during profile completion (DoctorProfile page).
+    // Making them optional here so registration succeeds, then the doctor fills
+    // them in via their profile. The admin approval flow handles ensuring they
+    // are complete before approving.
     specialization: {
         type: String,
-        required: [true, 'Specialization is required'],
+        required: false,
         trim: true
     },
     experience: {
         type: Number,
-        required: [true, 'Years of experience is required'],
+        required: false,
         min: 0
     },
     fees: {
         type: Number,
-        required: [true, 'Consultation fees is required'],
+        required: false,
         min: 0
     },
+
     timings: {
-        monday: { start: String, end: String, available: Boolean },
-        tuesday: { start: String, end: String, available: Boolean },
+        monday:    { start: String, end: String, available: Boolean },
+        tuesday:   { start: String, end: String, available: Boolean },
         wednesday: { start: String, end: String, available: Boolean },
-        thursday: { start: String, end: String, available: Boolean },
-        friday: { start: String, end: String, available: Boolean },
-        saturday: { start: String, end: String, available: Boolean },
-        sunday: { start: String, end: String, available: Boolean }
+        thursday:  { start: String, end: String, available: Boolean },
+        friday:    { start: String, end: String, available: Boolean },
+        saturday:  { start: String, end: String, available: Boolean },
+        sunday:    { start: String, end: String, available: Boolean }
     },
     status: {
         type: String,

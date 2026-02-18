@@ -27,8 +27,7 @@ const DoctorDashboard = () => {
       const response = await doctorService.getAppointments();
       const data = response.data.data || [];
       setAppointments(data);
-      
-      // Calculate stats
+
       setStats({
         total: data.length,
         pending: data.filter(a => a.status === 'pending').length,
@@ -43,13 +42,18 @@ const DoctorDashboard = () => {
     }
   };
 
+  // BUG FIX: Was calling updateAppointmentStatus(appointmentId, { status })
+  // which double-wraps the status: service does api.put(..., { status })
+  // so body becomes { status: { status: 'approved' } } — backend gets an object, not string.
+  // Fix: pass the plain string 'approved' / 'rejected' directly.
   const handleStatusUpdate = async (appointmentId, status) => {
     try {
-      await doctorService.updateAppointmentStatus(appointmentId, { status });
+      await doctorService.updateAppointmentStatus(appointmentId, status);
       toast.success(`Appointment ${status} successfully`);
       fetchAppointments();
     } catch (error) {
-      toast.error('Failed to update appointment status');
+      console.error('Error updating appointment:', error);
+      toast.error(error.response?.data?.message || 'Failed to update appointment status');
     }
   };
 
@@ -159,50 +163,54 @@ const DoctorDashboard = () => {
                 </Button>
               </Card.Header>
               <Card.Body>
-                <div className="table-responsive">
-                  <Table hover>
-                    <thead>
-                      <tr>
-                        <th>Patient</th>
-                        <th>Date & Time</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {appointments.slice(0, 5).map(app => (
-                        <tr key={app._id}>
-                          <td>{app.userInfo?.name}</td>
-                          <td>
-                            {new Date(app.date).toLocaleDateString()} {app.timeSlot?.start}
-                          </td>
-                          <td>{getStatusBadge(app.status)}</td>
-                          <td>
-                            {app.status === 'pending' && (
-                              <>
-                                <Button
-                                  variant="success"
-                                  size="sm"
-                                  className="me-2"
-                                  onClick={() => handleStatusUpdate(app._id, 'approved')}
-                                >
-                                  <FaCheck />
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() => handleStatusUpdate(app._id, 'rejected')}
-                                >
-                                  <FaTimes />
-                                </Button>
-                              </>
-                            )}
-                          </td>
+                {appointments.length === 0 ? (
+                  <p className="text-center text-muted py-4">No appointments yet</p>
+                ) : (
+                  <div className="table-responsive">
+                    <Table hover>
+                      <thead>
+                        <tr>
+                          <th>Patient</th>
+                          <th>Date & Time</th>
+                          <th>Status</th>
+                          <th>Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {appointments.slice(0, 5).map(app => (
+                          <tr key={app._id}>
+                            <td>{app.userInfo?.name}</td>
+                            <td>
+                              {new Date(app.date).toLocaleDateString()} {app.timeSlot?.start}
+                            </td>
+                            <td>{getStatusBadge(app.status)}</td>
+                            <td>
+                              {app.status === 'pending' && (
+                                <>
+                                  <Button
+                                    variant="success"
+                                    size="sm"
+                                    className="me-2"
+                                    onClick={() => handleStatusUpdate(app._id, 'approved')}
+                                  >
+                                    <FaCheck /> Approve
+                                  </Button>
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate(app._id, 'rejected')}
+                                  >
+                                    <FaTimes /> Reject
+                                  </Button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                )}
               </Card.Body>
             </Card>
           </Col>
